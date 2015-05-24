@@ -13,8 +13,8 @@
 # 3  subset columns required for project (std()/mean())
 # 4. read subject list for measures data
 # 5. read activities list for measures data 
-# 6. convert activities list to string equivalents
-# 7. merge subject, activities, measures for test/train; identify Train/Test data 
+# 6. merge subject, activities, measures for test/train; identify Train/Test data 
+# 7. convert activities list to string equivalents
 # Then assemble the remaining steps
 # 8. append test to train
 # 9. calculate averages for merged data by activity/subject
@@ -31,15 +31,16 @@
 run_analysis <- function(data_root,avecsv,pdscsv) {
   
   # 1a. read measures
-  fileloc <- paste(data_root,"/UCI HAR Dataset/test/x_test.txt",sep="")
+  fileloc <- paste0(data_root,"/UCI HAR Dataset/test/x_test.txt")
   test_measures <- read.table(fileloc)
   # 2a.rename measures columns from features.txt
-  fileloc <- paste(data_root,"/UCI HAR Dataset/features.txt",sep="")
+  fileloc <- paste0(data_root,"/UCI HAR Dataset/features.txt")
   measure_names <- read.table(fileloc)
   names(test_measures) <- measure_names$V2
   # 3a.  subset columns required for project (std()/mean())  
   pat <- "mean\\(\\)|std\\(\\)"
-  test_measures <- subset(test_measures, , grep(pat,names(test_measures)))
+  var_subset <- measure_names$V2[grep(pat,measure_names$V2)]
+  test_measures <- subset(test_measures, , var_subset)
   
   
   # from development work this should yield 66 columns
@@ -52,40 +53,33 @@ run_analysis <- function(data_root,avecsv,pdscsv) {
   fileloc <- paste0(data_root,"/UCI HAR Dataset/test/y_test.txt")
   test_activities <- read.table(fileloc)
   
-  # 6a. convert activities list to string equivalents
-  fileloc <- paste0(data_root,"/UCI HAR Dataset/activity_labels.txt")
-  activities <- read.table(fileloc)
-  luactnames <- c("token","activity")
-  names(activities) <-  luactnames 
-  names(test_activities)<- "token"
-  test_activities <- merge(test_activities,activities,by="token", all=TRUE)
-  test_activities <- subset(test_activities, , "activity")
-  
-  # 7a. merge subject, activities, measures for test/train
-  names(test_subjects)<- "subject"
-  
-  #so we have all the items for the Human Activity Project Data Store
-  # except for  the study group identifier(test/train)
-  # add that to the subjects frames
-  
-  # 7a. merge subject, activities, measures for test/train identify Train/Test data 
+  # 6a. merge subject, activities 
+  # add study_group to subjets
   library(plyr)
   test_subjects <- mutate(test_subjects,study_group="test")
   testleft <- cbind(test_subjects,test_activities)
+  names(testleft) <- c("subject", "study_group", "act_code")
   
   testdata <- cbind(testleft,test_measures)
-  # that completes the test records 
+  # 7a. convert activities list to string equivalents
+  fileloc <- paste0(data_root,"/UCI HAR Dataset/activity_labels.txt")
+  activities <- read.table(fileloc)
+  names(activities) <-  c("act_code","activity") 
+  testdata <- merge(testdata,activities,by="act_code", all=TRUE)
+  testdata <- subset(testdata,select=-act_code)
   
-  # repeat for train
+  # That is testdata
+  # now repeat for traindata
   # 1b. read measures
-  fileloc <- paste(data_root,"/UCI HAR Dataset/train/x_train.txt",sep="")
+  fileloc <- paste0(data_root,"/UCI HAR Dataset/train/x_train.txt")
   train_measures <- read.table(fileloc)
-  
   # 2b.rename measures columns from features.txt
   names(train_measures) <- measure_names$V2
- 
-  # 3b.  subset columns required for project (std()/mean())  
-  train_measures <- subset(train_measures, , grep(pat,names(train_measures)))
+  # 3a.  subset columns required for project (std()/mean())  
+  train_measures <- subset(train_measures, , var_subset)
+  
+  
+  # from development work this should yield 66 columns
   
   # 4b. read subject list for measures data
   fileloc <- paste0(data_root,"/UCI HAR Dataset/train/subject_train.txt")
@@ -95,16 +89,18 @@ run_analysis <- function(data_root,avecsv,pdscsv) {
   fileloc <- paste0(data_root,"/UCI HAR Dataset/train/y_train.txt")
   train_activities <- read.table(fileloc)
   
-  # 6b. convert activities list to string equivalents
-  names(train_activities)<- "token"
-  train_activities <- merge(train_activities,activities,by="token", all=TRUE)
-  train_activities <- subset(train_activities, , "activity")
-  
-  # 7b. merge subject, activities, measures for test/train identify Train/Test data 
-  names(train_subjects)<- "subject"
+  # 6a. merge subject, activities 
+  # add study_group to subjets
   train_subjects <- mutate(train_subjects,study_group="train")
   trainleft <- cbind(train_subjects,train_activities)
+  names(trainleft) <- c("subject", "study_group", "act_code")
+  
   traindata <- cbind(trainleft,train_measures)
+  # 7a. convert activities list to string equivalents
+  traindata <- merge(traindata,activities,by="act_code", all=TRUE)
+  traindata <- subset(traindata,select=-act_code)
+  
+  
   
   # Then assemble the remaining steps
   # 8. append test to train
@@ -122,5 +118,4 @@ run_analysis <- function(data_root,avecsv,pdscsv) {
   # 11. write out results
   write.csv(avetestdata,avecsv,row.names=FALSE)
   write.csv(project_data_store,pdscsv,row.names=FALSE)
-  
-  
+}
